@@ -1,78 +1,96 @@
 <template>
   <div class="join-meeting">
-    <div class="header" ref="header">
-      <div class="participant-info">
-        <div class="name-input">
-          <label>お名前：</label>
-          <input v-model="participantName" type="text" maxlength="20" />
+    <div class="meeting-header">
+      <h2>{{ meeting.name }}</h2>
+      <p class="organizer">主催者: {{ meeting.organizer }}</p>
+    </div>
+
+    <div class="participant-form" v-if="!hasSubmitted">
+      <div class="form-group">
+        <label for="participantName">お名前 (10文字以内)</label>
+        <input
+          id="participantName"
+          v-model="participantName"
+          type="text"
+          maxlength="10"
+          required
+          placeholder="例：山田太郎"
+        >
+      </div>
+      <div class="form-group">
+        <label for="comment">コメント (100文字以内)</label>
+        <textarea
+          id="comment"
+          v-model="comment"
+          maxlength="100"
+          rows="3"
+          placeholder="例：遅れて参加する可能性あり"
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="schedule-section">
+      <div class="schedule-table"
+           @mousedown="startDrag"
+           @mousemove="handleDrag"
+           @mouseup="endDrag"
+           @mouseleave="endDrag">
+        <table>
+          <thead>
+            <tr>
+              <th class="time-header">日時</th>
+              <th v-for="participant in participants" :key="participant.name">
+                {{ participant.name }}
+              </th>
+              <th v-if="!hasSubmitted">あなたの予定</th>
+            </tr>
+            <tr class="comment-row">
+              <th class="time-header">コメント</th>
+              <td v-for="participant in participants" :key="participant.name" class="comment-cell">
+                {{ participant.comment }}
+              </td>
+              <td v-if="!hasSubmitted" class="comment-cell">
+                {{ comment }}
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="datetime in datetimeSlots" :key="datetime.key">
+              <td class="time-cell">{{ formatDateTime(datetime) }}</td>
+              <td v-for="participant in participants" :key="participant.name"
+                  class="schedule-cell">
+                {{ getParticipantAvailability(datetime.date, datetime.time, participant) }}
+              </td>
+              <td v-if="!hasSubmitted"
+                  class="schedule-cell editable"
+                  :class="[
+                    getAvailabilityClass(datetime.date, datetime.time),
+                    { 'cell-selected': isSelected(datetime.date, datetime.time) }
+                  ]"
+                  :data-date="datetime.date"
+                  :data-time="datetime.time">
+                {{ getAvailabilitySymbol(datetime.date, datetime.time) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="controls" v-if="!hasSubmitted">
+        <div class="availability-controls">
+          <button @click="setSelectedAvailability('○')" class="control-button available">○</button>
+          <button @click="setSelectedAvailability('△')" class="control-button maybe">△</button>
+          <button @click="setSelectedAvailability('×')" class="control-button unavailable">×</button>
         </div>
-        <div class="comment-input">
-          <label>コメント：</label>
-          <textarea v-model="comment" maxlength="100" rows="2"></textarea>
-        </div>
-      </div>
-      <div class="button-group">
-        <button @click="submitSchedule" :disabled="!isValid">予定を送信</button>
+        <button @click="submitSchedule" :disabled="!isValid" class="submit-button">
+          予定を送信
+        </button>
       </div>
     </div>
 
-    <div class="schedule-table-container" ref="tableContainer">
-      <table class="schedule-table">
-        <thead>
-          <tr>
-            <th class="name-column">参加者</th>
-            <th v-for="(date, index) in meeting.value.dates" :key="date" :class="{ 'date-separator': index > 0 }">
-              {{ formatDate(date) }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="participant in participants.value" :key="participant.name">
-            <td class="name-column">
-              <div class="participant-name">{{ participant.name }}</div>
-              <div class="participant-comment" v-if="participant.comment">{{ participant.comment }}</div>
-            </td>
-            <td v-for="(datetime, index) in datetimeSlots" 
-                :key="datetime.key"
-                :class="{ 'date-separator': isDateSeparator(index) }">
-              <div class="availability-cell">
-                {{ getParticipantAvailability(participant, datetime) }}
-              </div>
-            </td>
-          </tr>
-          <tr class="current-user">
-            <td class="name-column">
-              <div class="participant-name">{{ participantName || '未入力' }}</div>
-              <div class="participant-comment" v-if="comment">{{ comment }}</div>
-            </td>
-            <td v-for="(datetime, index) in datetimeSlots" 
-                :key="datetime.key"
-                :class="{ 'date-separator': isDateSeparator(index) }">
-              <div class="availability-cell"
-                   :class="getCellClass(datetime)"
-                   @mousedown="startDrag($event, datetime)"
-                   @mouseover="handleDrag($event, datetime)"
-                   @mouseup="endDrag"
-                   @mouseleave="endDrag">
-                {{ getCellValue(datetime) }}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="controls" v-if="!hasSubmitted">
-      <div class="availability-controls">
-        <button @click="setSelectedAvailability('○')" class="control-button available">○</button>
-        <button @click="setSelectedAvailability('△')" class="control-button maybe">△</button>
-        <button @click="setSelectedAvailability('×')" class="control-button unavailable">×</button>
-      </div>
-    </div>
-
-    <div class="participants-list" v-if="participants.value.length > 0">
+    <div class="participants-list" v-if="participants.length > 0">
       <h3>参加者コメント</h3>
-      <div v-for="participant in participants.value" :key="participant.name" class="participant">
+      <div v-for="participant in participants" :key="participant.name" class="participant">
         <div class="participant-name">{{ participant.name }}</div>
         <div class="participant-comment">{{ participant.comment }}</div>
       </div>
@@ -105,145 +123,10 @@ const participants = ref([
   }
 ])
 
-// ドラッグ関連の状態管理
+// ドラッグ選択関連の状態
 const isDragging = ref(false)
-const dragStartCell = ref(null)
+const dragStart = ref(null)
 const selectedCells = ref(new Set())
-const dragStartValue = ref(null)
-
-// 参加者の予定
-const availability = ref({})
-
-// ドラッグ操作の処理
-const startDrag = (event, datetime) => {
-  event.preventDefault()
-  isDragging.value = true
-  dragStartCell.value = datetime
-  selectedCells.value = new Set([datetime])
-  
-  // ドラッグ開始時の値を保存
-  dragStartValue.value = availability.value[datetime.key] || '○'
-  
-  // 次の状態に更新
-  const nextValue = getNextValue(dragStartValue.value)
-  updateCellValue(datetime, nextValue)
-}
-
-const handleDrag = (event, datetime) => {
-  if (!isDragging.value) return
-  
-  // 既に選択済みのセルは無視
-  if (selectedCells.value.has(datetime.key)) return
-  
-  // セルを選択状態に追加
-  selectedCells.value.add(datetime.key)
-  
-  // ドラッグ開始時と同じ値の場合は次の値に、異なる場合は○に変更
-  const currentValue = availability.value[datetime.key] || '○'
-  const nextValue = currentValue === dragStartValue.value 
-    ? getNextValue(currentValue)
-    : '○'
-  
-  updateCellValue(datetime, nextValue)
-}
-
-const endDrag = () => {
-  isDragging.value = false
-  dragStartCell.value = null
-  selectedCells.value.clear()
-  dragStartValue.value = null
-}
-
-// セルの値を更新
-const updateCellValue = (datetime, value) => {
-  availability.value[datetime.key] = value
-}
-
-// 次の値を取得（○→△→×→○）
-const getNextValue = (currentValue) => {
-  const values = ['○', '△', '×']
-  const currentIndex = values.indexOf(currentValue)
-  return values[(currentIndex + 1) % values.length]
-}
-
-// セルのクラスを取得
-const getCellClass = (datetime) => {
-  const value = availability.value[datetime.key] || '○'
-  return {
-    'cell-selected': selectedCells.value.has(datetime.key),
-    'available': value === '○',
-    'maybe': value === '△',
-    'unavailable': value === '×'
-  }
-}
-
-// セルの値を表示
-const getCellValue = (datetime) => {
-  return availability.value[datetime.key] || '○'
-}
-
-const participantName = ref('')
-const comment = ref('')
-const hasSubmitted = ref(false)
-
-const isValid = computed(() => {
-  return participantName.value.length > 0
-})
-
-function formatDateTime(datetime) {
-  const date = new Date(datetime.date)
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()]
-  return `${month}/${day}(${dayOfWeek}) ${datetime.time}`
-}
-
-function getParticipantAvailability(participant, datetime) {
-  const key = `${datetime.date}-${datetime.time}`
-  return participant.availability?.[key] || '○'
-}
-
-function setSelectedAvailability(value) {
-  // 選択されたセルの現在の状態を取得
-  const currentStates = Array.from(selectedCells.value).map(datetime => 
-    availability.value[datetime] || 'unavailable'
-  );
-
-  // 全てのセルが同じ状態かチェック
-  const allSameState = currentStates.every(state => state === currentStates[0]);
-  
-  // 次の状態を決定
-  let nextState;
-  if (allSameState) {
-    // 全て同じ状態なら、次の状態に進める
-    const states = ['unavailable', 'available', 'maybe'];
-    const currentIndex = states.indexOf(currentStates[0]);
-    nextState = states[(currentIndex + 1) % states.length];
-  } else {
-    // 異なる状態が混在している場合は、最初の状態（○）にする
-    nextState = 'available';
-  }
-
-  // 選択された全てのセルを更新
-  selectedCells.value.forEach(datetime => {
-    availability.value[datetime] = nextState;
-  });
-
-  // ドラッグ状態をリセット
-  selectedCells.value.clear()
-}
-
-async function submitSchedule() {
-  participants.value.push({
-    name: participantName.value,
-    comment: comment.value,
-    availability: { ...availability.value }
-  })
-  
-  hasSubmitted.value = true
-  participantName.value = ''
-  comment.value = ''
-}
 
 // 日時スロットの生成
 const datetimeSlots = computed(() => {
@@ -263,13 +146,106 @@ const datetimeSlots = computed(() => {
   return slots
 })
 
-function formatDate(date) {
-  const dateObject = new Date(date)
-  return format(dateObject, 'yyyy-MM-dd', { locale: ja })
+const participantName = ref('')
+const comment = ref('')
+const hasSubmitted = ref(false)
+const availability = ref({})
+
+const isValid = computed(() => {
+  return participantName.value.length > 0
+})
+
+function formatDateTime(datetime) {
+  const date = new Date(datetime.date)
+  return `${format(date, 'M/d(E)', { locale: ja })} ${datetime.time}`
 }
 
-function isDateSeparator(index) {
-  return index > 0 && datetimeSlots.value[index - 1].date !== datetimeSlots.value[index].date
+function getParticipantAvailability(date, time, participant) {
+  const key = `${date}-${time}`
+  return participant.availability?.[key] || '○'
+}
+
+function getAvailabilitySymbol(date, time) {
+  const key = `${date}-${time}`
+  return availability.value[key] || '○'
+}
+
+function getAvailabilityClass(date, time) {
+  const key = `${date}-${time}`
+  const value = availability.value[key]
+  return {
+    'available': !value || value === '○',
+    'maybe': value === '△',
+    'unavailable': value === '×'
+  }
+}
+
+// ドラッグ選択関連の関数
+function startDrag(event) {
+  if (!event.target.classList.contains('editable')) return
+  isDragging.value = true
+  dragStart.value = {
+    date: event.target.dataset.date,
+    time: event.target.dataset.time
+  }
+  
+  // ドラッグ開始点の状態を変更
+  const key = `${dragStart.value.date}-${dragStart.value.time}`
+  const currentValue = availability.value[key] || '○'
+  availability.value[key] = getNextAvailability(currentValue)
+  selectedCells.value = new Set([key])
+}
+
+function handleDrag(event) {
+  if (!isDragging.value) return
+  const cell = event.target
+  if (!cell.classList.contains('editable')) return
+
+  const currentDate = cell.dataset.date
+  const currentTime = cell.dataset.time
+  if (!currentDate || !currentTime) return
+
+  const key = `${currentDate}-${currentTime}`
+  if (selectedCells.value.has(key)) return
+
+  // 新しいセルの状態を、ドラッグ開始点と同じ状態に変更
+  selectedCells.value.add(key)
+  const startKey = `${dragStart.value.date}-${dragStart.value.time}`
+  const targetValue = availability.value[startKey]
+  availability.value[key] = getNextAvailability(targetValue)
+}
+
+function endDrag() {
+  isDragging.value = false
+}
+
+function isSelected(date, time) {
+  return selectedCells.value.has(`${date}-${time}`)
+}
+
+function setSelectedAvailability(value) {
+  selectedCells.value.forEach(key => {
+    availability.value[key] = value
+  })
+  selectedCells.value.clear()
+}
+
+function getNextAvailability(current) {
+  const order = ['○', '△', '×']
+  const currentIndex = order.indexOf(current)
+  return order[(currentIndex + 1) % order.length]
+}
+
+async function submitSchedule() {
+  participants.value.push({
+    name: participantName.value,
+    comment: comment.value,
+    availability: { ...availability.value }
+  })
+  
+  hasSubmitted.value = true
+  participantName.value = ''
+  comment.value = ''
 }
 </script>
 
@@ -280,103 +256,95 @@ function isDateSeparator(index) {
   padding: 20px;
 }
 
-.header {
+.meeting-header {
   margin-bottom: 20px;
 }
 
-.schedule-table-container {
-  position: relative;
-  overflow: auto;
+.participant-form {
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #f5f5f5;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.schedule-section {
+  margin-bottom: 30px;
 }
 
 .schedule-table {
+  overflow-x: auto;
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
 }
 
-.schedule-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: white;
-}
-
-.schedule-table th {
+th, td {
   padding: 10px;
-  text-align: center;
-  background: white;
-  border-bottom: 2px solid #ddd;
-  white-space: nowrap;
-}
-
-.schedule-table td {
-  padding: 6px;
-  text-align: center;
   border: 1px solid #ddd;
-  white-space: nowrap;
+  text-align: center;
+  min-width: 100px;
 }
 
-.name-column {
+.time-header {
+  background: #f5f5f5;
   position: sticky;
   left: 0;
-  background: white;
+  z-index: 2;
+}
+
+.time-cell {
+  background: #f5f5f5;
+  position: sticky;
+  left: 0;
   z-index: 1;
-  min-width: 150px;
-  padding: 8px;
-  border-right: 2px solid #ddd;
-}
-
-.participant-name {
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-.participant-comment {
-  font-size: 0.85em;
-  color: #666;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
 }
 
-.availability-cell {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.schedule-cell {
+  position: relative;
+  cursor: default;
+}
+
+.schedule-cell.editable {
   cursor: pointer;
-  border: 1px solid #ddd;
   user-select: none;
-  transition: all 0.2s;
 }
 
-.availability-cell.cell-selected {
-  background-color: rgba(0, 123, 255, 0.1);
-  border: 2px solid #007bff;
+.cell-selected {
+  position: relative;
 }
 
-.availability-cell.available {
-  background-color: #e8f5e9;
+.cell-selected::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 
-.availability-cell.maybe {
-  background-color: #fff3e0;
+.controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
-.availability-cell.unavailable {
-  background-color: #ffebee;
+.availability-controls {
+  display: flex;
+  gap: 10px;
 }
 
-.date-separator {
-  border-left: 2px solid #666;
-}
-
-/* コントロールボタンのスタイル */
 .control-button {
   padding: 8px 16px;
   border: none;
