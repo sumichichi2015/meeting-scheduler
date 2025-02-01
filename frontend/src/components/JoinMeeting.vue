@@ -52,12 +52,9 @@
               </td>
               <td v-if="!hasSubmitted" 
                   class="availability-cell"
-                  :class="[
-                    'editable',
-                    { 'cell-selected': isSelected(datetime.date, datetime.time) }
-                  ]"
-                  @mousedown="startDrag($event, datetime)"
-                  @mouseover="handleDrag($event, datetime)"
+                  :class="getCellClass('current', datetime)"
+                  @mousedown="startDrag($event, 'current', datetime)"
+                  @mouseover="handleDrag($event, 'current', datetime)"
                   @mouseup="endDrag"
                   @mouseleave="endDrag">
                 {{ getAvailabilitySymbol(datetime.date, datetime.time) }}
@@ -114,11 +111,88 @@ const participants = ref([
   }
 ])
 
-// ドラッグ選択関連の状態
-const isDragging = ref(false)
-const dragStart = ref(null)
-const dragState = ref(null)
-const selectedCells = ref(new Set())
+// ドラッグ関連の状態管理
+const dragState = ref({
+  isDragging: false,
+  startCell: null,
+  participantId: null,
+  selectedCells: new Set()
+});
+
+const startDrag = (event, participantId, datetime) => {
+  dragState.value = {
+    isDragging: true,
+    startCell: datetime,
+    participantId: participantId,
+    selectedCells: new Set([datetime])
+  };
+};
+
+const handleDrag = (event, participantId, datetime) => {
+  if (!dragState.value.isDragging || dragState.value.participantId !== participantId) return;
+  dragState.value.selectedCells.add(datetime);
+};
+
+const endDrag = () => {
+  if (!dragState.value.isDragging) return;
+
+  const availability = dragState.value.participantId === 'current' 
+    ? availability.value 
+    : participants.value.find(p => p.id === dragState.value.participantId)?.availability;
+
+  if (!availability) return;
+
+  // 選択されたセルの現在の状態を取得
+  const currentStates = Array.from(dragState.value.selectedCells).map(datetime => 
+    availability[datetime] || 'unavailable'
+  );
+
+  // 全てのセルが同じ状態かチェック
+  const allSameState = currentStates.every(state => state === currentStates[0]);
+  
+  // 次の状態を決定
+  let nextState;
+  if (allSameState) {
+    // 全て同じ状態なら、次の状態に進める
+    const states = ['unavailable', 'available', 'maybe'];
+    const currentIndex = states.indexOf(currentStates[0]);
+    nextState = states[(currentIndex + 1) % states.length];
+  } else {
+    // 異なる状態が混在している場合は、最初の状態（○）にする
+    nextState = 'available';
+  }
+
+  // 選択された全てのセルを更新
+  dragState.value.selectedCells.forEach(datetime => {
+    availability[datetime] = nextState;
+  });
+
+  // ドラッグ状態をリセット
+  dragState.value = {
+    isDragging: false,
+    startCell: null,
+    participantId: null,
+    selectedCells: new Set()
+  };
+};
+
+// セルのクラスを取得
+const getCellClass = (participantId, datetime) => {
+  const isSelected = dragState.value.isDragging && 
+                    dragState.value.participantId === participantId && 
+                    dragState.value.selectedCells.has(datetime);
+  
+  const availability = participantId === 'current' 
+    ? availability.value[datetime] 
+    : participants.value.find(p => p.id === participantId)?.availability[datetime];
+
+  return {
+    'available': availability === '○',
+    'maybe': availability === '△',
+    'unavailable': !availability || availability === '×',
+    'selected': isSelected
+  };
+};
 
 // 日時スロットの生成
 const datetimeSlots = computed(() => {
@@ -165,61 +239,39 @@ function getAvailabilitySymbol(date, time) {
   return availability.value[date]?.[time] || '○'
 }
 
-function startDrag(event, datetime) {
-  event.preventDefault()
-  isDragging.value = true
-  dragStart.value = {
-    date: datetime.date,
-    time: datetime.time
-  }
-  
-  // ドラッグ開始時の状態を保存
-  const currentState = availability.value[datetime.date]?.[datetime.time] || '○'
-  const nextState = getNextState(currentState)
-  dragState.value = nextState
-  
-  // 開始セルの状態を変更
-  updateCellState(datetime.date, datetime.time, nextState)
-  selectedCells.value = new Set([`${datetime.date}-${datetime.time}`])
-}
-
-function handleDrag(event, datetime) {
-  if (!isDragging.value) return
-  
-  const key = `${datetime.date}-${datetime.time}`
-  if (selectedCells.value.has(key)) return
-
-  selectedCells.value.add(key)
-  updateCellState(datetime.date, datetime.time, dragState.value)
-}
-
-function endDrag() {
-  isDragging.value = false
-}
-
-function isSelected(date, time) {
-  return selectedCells.value.has(`${date}-${time}`)
-}
-
 function setSelectedAvailability(value) {
-  selectedCells.value.forEach(key => {
-    const [date, time] = key.split('-')
-    updateCellState(date, time, value)
-  })
-  selectedCells.value.clear()
-}
+  // 選択されたセルの現在の状態を取得
+  const currentStates = Array.from(dragState.value.selectedCells).map(datetime => 
+    availability.value[datetime] || 'unavailable'
+  );
 
-function updateCellState(date, time, state) {
-  if (!availability.value[date]) {
-    availability.value[date] = {}
+  // 全てのセルが同じ状態かチェック
+  const allSameState = currentStates.every(state => state === currentStates[0]);
+  
+  // 次の状態を決定
+  let nextState;
+  if (allSameState) {
+    // 全て同じ状態なら、次の状態に進める
+    const states = ['unavailable', 'available', 'maybe'];
+    const currentIndex = states.indexOf(currentStates[0]);
+    nextState = states[(currentIndex + 1) % states.length];
+  } else {
+    // 異なる状態が混在している場合は、最初の状態（○）にする
+    nextState = 'available';
   }
-  availability.value[date][time] = state
-}
 
-function getNextState(currentState) {
-  const states = ['○', '△', '×']
-  const currentIndex = states.indexOf(currentState)
-  return states[(currentIndex + 1) % states.length]
+  // 選択された全てのセルを更新
+  dragState.value.selectedCells.forEach(datetime => {
+    availability.value[datetime] = nextState;
+  });
+
+  // ドラッグ状態をリセット
+  dragState.value = {
+    isDragging: false,
+    startCell: null,
+    participantId: null,
+    selectedCells: new Set()
+  };
 }
 
 async function submitSchedule() {
@@ -313,42 +365,30 @@ async function submitSchedule() {
 
 .availability-cell {
   width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  user-select: none;
-  text-align: center;
+  border: 1px solid #ddd;
+  transition: background-color 0.2s;
 }
 
-.availability-cell.editable {
-  background-color: #f8f9fa;
-}
-
-.availability-cell.cell-selected {
-  background-color: #e9ecef;
-}
-
-.new-date {
-  border-top: 2px solid #666;
-}
-
-/* ドラッグ中のスタイル */
-.cell-selected {
+.availability-cell.selected {
   background-color: rgba(0, 123, 255, 0.1);
+  border: 2px solid #007bff;
 }
 
-/* テーブルヘッダーの固定 */
-thead tr {
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 2;
+.availability-cell.available {
+  background-color: #e8f5e9;
 }
 
-thead th {
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 2;
-  border-bottom: 2px solid #ddd;
+.availability-cell.maybe {
+  background-color: #fff3e0;
+}
+
+.availability-cell.unavailable {
+  background-color: #ffebee;
 }
 
 /* 参加者コメントのスタイル */
