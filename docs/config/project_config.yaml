@@ -1,0 +1,76 @@
+project:
+  name: meeting-scheduler
+  version: 1.0.0
+  description: 会議日程調整アプリケーション
+
+environment:
+  node: ">=18.0.0"
+  python: ">=3.8.0"
+  port: 3002
+
+dependencies:
+  frontend:
+    core:
+      vue: 3.3.7
+      pinia: 2.1.7
+      vue-router: 4.2.5
+    ui:
+      v-calendar: 3.0.3
+      date-fns: 2.30.0
+    dev:
+      vite: 4.5.0
+      typescript: 5.2.2
+  testing:
+    selenium: 4.10.0
+    pytest: 7.4.0
+    pytest-selenium: 4.0.0
+
+build:
+  commands:
+    dev: "PORT=3002 npm run dev"
+    build: "npm run build"
+    test: "python3 -m pytest tests/"
+
+testing:
+  selenium:
+    browser: chrome
+    headless: true
+    screenshot_dir: tests/screenshots
+    viewport:
+      width: 1280
+      height: 800
+
+ui:
+  theme:
+    colors:
+      primary: "#4CAF50"
+      secondary: "#FFC107"
+      danger: "#f44336"
+      text: "#333333"
+      background: "#f5f5f5"
+  calendar:
+    max_days: 60
+    time_slots:
+      start: "09:00"
+      end: "18:00"
+      interval: 30
+  responsive_breakpoints:
+    mobile: 768px
+    tablet: 1024px
+    desktop: 1280px
+
+git:
+  repository: https://github.com/sumichichi2015/meeting-scheduler
+  branches:
+    main: production
+    develop: staging
+  commit_convention:
+    format: "[type] description #issue"
+    types:
+      - feat
+      - fix
+      - docs
+      - style
+      - refactor
+      - test
+      - chore
