@@ -1,0 +1,61 @@
+application:
+  name: 会議調整アプリ
+  version: 1.0.0
+
+system_limits:
+  data_retention:
+    duration: 1
+    unit: month
+  concurrent_users: 5
+  meetings_per_user: 3
+  max_candidate_days: 15
+  max_participants: 15
+  text_limits:
+    meeting_name: 20
+    participant_name: 10
+    comment: 30
+
+time_settings:
+  business_hours:
+    start: "09:00"
+    end: "18:00"
+  time_slot: 30  # minutes
+  default_status: "available"
+
+schedule_input:
+  status_types:
+    - symbol: "○"
+      meaning: "参加可能"
+      default: true
+    - symbol: "△"
+      meaning: "微妙"
+      default: false
+    - symbol: "×"
+      meaning: "不可"
+      default: false
+
+comment_system:
+  max_length: 30
+  visibility: "public"
+
+url_management:
+  generation: "random"
+  copy_feature: true
+  expiration:
+    duration: 1
+    unit: month
+
+tech_stack:
+  frontend:
+    framework: "Vue.js"
+    language: "JavaScript"
+  backend:
+    framework: "FastAPI"
+    language: "Python"
+  database:
+    type: "SQLite"
+    version: "3"
+
+security:
+  level: "basic"
+  authentication: false
