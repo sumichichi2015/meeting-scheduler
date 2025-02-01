@@ -18,14 +18,14 @@
         >
       </div>
       <div class="form-group">
-        <label for="comment">コメント (100文字以内)</label>
-        <textarea
+        <label for="comment">コメント (30文字以内)</label>
+        <input
           id="comment"
           v-model="comment"
-          maxlength="100"
-          rows="3"
+          type="text"
+          maxlength="30"
           placeholder="例：遅れて参加する可能性あり"
-        ></textarea>
+        >
       </div>
     </div>
 
@@ -277,7 +277,6 @@ async function submitSchedule() {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  position: relative;
 }
 
 table {
@@ -433,16 +432,6 @@ th, td {
   z-index: 10;
   max-width: 200px;
   white-space: normal;
-}
-
-.date-divider {
-  border-top: 2px solid #666;
-  margin-top: 10px;
-  padding-top: 15px;
-}
-
-.time-slot {
-  width: 60px;
 }
 
 @media (max-width: 768px) {
