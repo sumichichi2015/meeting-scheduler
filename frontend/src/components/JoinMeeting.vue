@@ -37,7 +37,6 @@
               <th class="date-cell">日時</th>
               <th v-for="participant in participants" :key="participant.name">
                 {{ participant.name }}
-                <div class="participant-comment">{{ participant.comment }}</div>
               </th>
               <th v-if="!hasSubmitted">あなたの予定</th>
             </tr>
