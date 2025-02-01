@@ -52,12 +52,12 @@
               </td>
               <td v-if="!hasSubmitted" 
                   class="availability-cell"
-                  :class="getCellClass('current', datetime)"
-                  @mousedown="startDrag($event, 'current', datetime)"
-                  @mouseover="handleDrag($event, 'current', datetime)"
+                  :class="getCellClass(datetime)"
+                  @mousedown="startDrag($event, datetime)"
+                  @mouseover="handleDrag($event, datetime)"
                   @mouseup="endDrag"
                   @mouseleave="endDrag">
-                {{ getAvailabilitySymbol(datetime.date, datetime.time) }}
+                {{ getCellValue(datetime) }}
               </td>
             </tr>
           </tbody>
@@ -112,110 +112,85 @@ const participants = ref([
 ])
 
 // ドラッグ関連の状態管理
-const dragState = ref({
-  isDragging: false,
-  startCell: null,
-  participantId: null,
-  selectedCells: new Set()
-});
+const isDragging = ref(false)
+const dragStartCell = ref(null)
+const selectedCells = ref(new Set())
+const dragStartValue = ref(null)
 
-const startDrag = (event, participantId, datetime) => {
-  dragState.value = {
-    isDragging: true,
-    startCell: datetime,
-    participantId: participantId,
-    selectedCells: new Set([datetime])
-  };
-};
+// 参加者の予定
+const availability = ref({})
 
-const handleDrag = (event, participantId, datetime) => {
-  if (!dragState.value.isDragging || dragState.value.participantId !== participantId) return;
-  dragState.value.selectedCells.add(datetime);
-};
+// ドラッグ操作の処理
+const startDrag = (event, datetime) => {
+  event.preventDefault()
+  isDragging.value = true
+  dragStartCell.value = datetime
+  selectedCells.value = new Set([datetime])
+  
+  // ドラッグ開始時の値を保存
+  dragStartValue.value = availability.value[datetime] || '○'
+  
+  // 次の状態に更新
+  const nextValue = getNextValue(dragStartValue.value)
+  updateCellValue(datetime, nextValue)
+}
+
+const handleDrag = (event, datetime) => {
+  if (!isDragging.value) return
+  
+  // 既に選択済みのセルは無視
+  if (selectedCells.value.has(datetime)) return
+  
+  // セルを選択状態に追加
+  selectedCells.value.add(datetime)
+  
+  // ドラッグ開始時と同じ値の場合は次の値に、異なる場合は○に変更
+  const currentValue = availability.value[datetime] || '○'
+  const nextValue = currentValue === dragStartValue.value 
+    ? getNextValue(currentValue)
+    : '○'
+  
+  updateCellValue(datetime, nextValue)
+}
 
 const endDrag = () => {
-  if (!dragState.value.isDragging) return;
+  isDragging.value = false
+  dragStartCell.value = null
+  selectedCells.value.clear()
+  dragStartValue.value = null
+}
 
-  const availability = dragState.value.participantId === 'current' 
-    ? availability.value 
-    : participants.value.find(p => p.id === dragState.value.participantId)?.availability;
+// セルの値を更新
+const updateCellValue = (datetime, value) => {
+  availability.value[datetime] = value
+}
 
-  if (!availability) return;
-
-  // 選択されたセルの現在の状態を取得
-  const currentStates = Array.from(dragState.value.selectedCells).map(datetime => 
-    availability[datetime] || 'unavailable'
-  );
-
-  // 全てのセルが同じ状態かチェック
-  const allSameState = currentStates.every(state => state === currentStates[0]);
-  
-  // 次の状態を決定
-  let nextState;
-  if (allSameState) {
-    // 全て同じ状態なら、次の状態に進める
-    const states = ['unavailable', 'available', 'maybe'];
-    const currentIndex = states.indexOf(currentStates[0]);
-    nextState = states[(currentIndex + 1) % states.length];
-  } else {
-    // 異なる状態が混在している場合は、最初の状態（○）にする
-    nextState = 'available';
-  }
-
-  // 選択された全てのセルを更新
-  dragState.value.selectedCells.forEach(datetime => {
-    availability[datetime] = nextState;
-  });
-
-  // ドラッグ状態をリセット
-  dragState.value = {
-    isDragging: false,
-    startCell: null,
-    participantId: null,
-    selectedCells: new Set()
-  };
-};
+// 次の値を取得（○→△→×→○）
+const getNextValue = (currentValue) => {
+  const values = ['○', '△', '×']
+  const currentIndex = values.indexOf(currentValue)
+  return values[(currentIndex + 1) % values.length]
+}
 
 // セルのクラスを取得
-const getCellClass = (participantId, datetime) => {
-  const isSelected = dragState.value.isDragging && 
-                    dragState.value.participantId === participantId && 
-                    dragState.value.selectedCells.has(datetime);
-  
-  const availability = participantId === 'current' 
-    ? availability.value[datetime] 
-    : participants.value.find(p => p.id === participantId)?.availability[datetime];
-
+const getCellClass = (datetime) => {
+  const value = availability.value[datetime] || '○'
   return {
-    'available': availability === '○',
-    'maybe': availability === '△',
-    'unavailable': !availability || availability === '×',
-    'selected': isSelected
-  };
-};
+    'cell-selected': selectedCells.value.has(datetime),
+    'available': value === '○',
+    'maybe': value === '△',
+    'unavailable': value === '×'
+  }
+}
 
-// 日時スロットの生成
-const datetimeSlots = computed(() => {
-  const slots = []
-  meeting.value.dates.forEach(date => {
-    for (let hour = 9; hour < 18; hour++) {
-      for (let minute of [0, 30]) {
-        const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
-        slots.push({
-          date,
-          time,
-          key: `${date}-${time}`
-        })
-      }
-    }
-  })
-  return slots
-})
+// セルの値を表示
+const getCellValue = (datetime) => {
+  return availability.value[datetime] || '○'
+}
 
 const participantName = ref('')
 const comment = ref('')
 const hasSubmitted = ref(false)
-const availability = ref({})
 
 const isValid = computed(() => {
   return participantName.value.length > 0
@@ -234,14 +209,9 @@ function getParticipantAvailability(participant, datetime) {
   return participant.availability?.[key] || '○'
 }
 
-function getAvailabilitySymbol(date, time) {
-  const key = `${date}-${time}`
-  return availability.value[date]?.[time] || '○'
-}
-
 function setSelectedAvailability(value) {
   // 選択されたセルの現在の状態を取得
-  const currentStates = Array.from(dragState.value.selectedCells).map(datetime => 
+  const currentStates = Array.from(selectedCells.value).map(datetime => 
     availability.value[datetime] || 'unavailable'
   );
 
@@ -261,17 +231,12 @@ function setSelectedAvailability(value) {
   }
 
   // 選択された全てのセルを更新
-  dragState.value.selectedCells.forEach(datetime => {
+  selectedCells.value.forEach(datetime => {
     availability.value[datetime] = nextState;
   });
 
   // ドラッグ状態をリセット
-  dragState.value = {
-    isDragging: false,
-    startCell: null,
-    participantId: null,
-    selectedCells: new Set()
-  };
+  selectedCells.value.clear()
 }
 
 async function submitSchedule() {
@@ -285,6 +250,24 @@ async function submitSchedule() {
   participantName.value = ''
   comment.value = ''
 }
+
+// 日時スロットの生成
+const datetimeSlots = computed(() => {
+  const slots = []
+  meeting.value.dates.forEach(date => {
+    for (let hour = 9; hour < 18; hour++) {
+      for (let minute of [0, 30]) {
+        const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+        slots.push({
+          date,
+          time,
+          key: `${date}-${time}`
+        })
+      }
+    }
+  })
+  return slots
+})
 </script>
 
 <style scoped>
@@ -371,10 +354,11 @@ async function submitSchedule() {
   justify-content: center;
   cursor: pointer;
   border: 1px solid #ddd;
-  transition: background-color 0.2s;
+  user-select: none;
+  transition: all 0.2s;
 }
 
-.availability-cell.selected {
+.availability-cell.cell-selected {
   background-color: rgba(0, 123, 255, 0.1);
   border: 2px solid #007bff;
 }
