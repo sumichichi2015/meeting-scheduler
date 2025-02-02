@@ -1,116 +1,126 @@
 <template>
   <div class="create-meeting">
-    <h2>会議作成</h2>
-    <div class="form-container">
-      <div class="form-group">
-        <label for="meetingName">会議名 (20文字以内)</label>
-        <input
-          id="meetingName"
-          v-model="meetingName"
-          type="text"
-          maxlength="20"
-          required
-          placeholder="例：週次ミーティング"
-        >
-      </div>
+    <div v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
 
-      <div class="form-group">
-        <label for="organizerName">主催者名 (10文字以内)</label>
-        <input
-          id="organizerName"
-          v-model="organizerName"
-          type="text"
-          maxlength="10"
-          required
-          placeholder="例：山田太郎"
-        >
-      </div>
+    <div v-if="loading" class="loading">
+      会議を作成中...
+    </div>
 
-      <div class="date-time-section">
-        <h3>候補日時の選択</h3>
-        
-        <div class="calendar-container">
-          <v-calendar
-            v-model="selectedDates"
-            :min-date="new Date()"
-            :max-date="maxDate"
-            :attributes="calendarAttributes"
-            :columns="2"
-            mode="multiple"
-            is-expanded
-            :first-day-of-week="1"
-            :locale="ja"
-            @dayclick="onDayClick"
-          />
+    <template v-else>
+      <h2>会議作成</h2>
+      <div class="form-container">
+        <div class="form-group">
+          <label for="meetingName">会議名 (20文字以内)</label>
+          <input
+            id="meetingName"
+            v-model="meetingName"
+            type="text"
+            maxlength="20"
+            required
+            placeholder="例：週次ミーティング"
+          >
         </div>
 
-        <div class="time-slots-container">
-          <h4>時間帯の設定</h4>
-          <div class="time-slots-header">
-            <div class="time-range">
-              <label>
-                開始時刻:
-                <select v-model="defaultStartTime">
-                  <option v-for="time in availableStartTimes" :key="time" :value="time">
-                    {{ time }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                終了時刻:
-                <select v-model="defaultEndTime">
-                  <option v-for="time in availableEndTimes" :key="time" :value="time">
-                    {{ time }}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <div class="time-controls">
-              <button @click="applyTimeToAllDates" class="apply-time-button">
-                全ての日に適用
-              </button>
-              <button @click="clearAllTimeSlots" class="clear-button">
-                全ての時間帯をクリア
-              </button>
-            </div>
+        <div class="form-group">
+          <label for="organizerName">主催者名 (10文字以内)</label>
+          <input
+            id="organizerName"
+            v-model="organizerName"
+            type="text"
+            maxlength="10"
+            required
+            placeholder="例：山田太郎"
+          >
+        </div>
+
+        <div class="date-time-section">
+          <h3>候補日時の選択</h3>
+          
+          <div class="calendar-container">
+            <v-calendar
+              v-model="selectedDates"
+              :min-date="new Date()"
+              :max-date="maxDate"
+              :attributes="calendarAttributes"
+              :columns="2"
+              mode="multiple"
+              is-expanded
+              :first-day-of-week="1"
+              :locale="ja"
+              @dayclick="onDayClick"
+            />
           </div>
 
-          <div class="selected-dates-list">
-            <div v-for="date in selectedDates" :key="date" class="date-item">
-              <div class="date-header">
-                {{ formatDate(date) }}
-                <button @click="removeDate(date)" class="remove-date-button">×</button>
+          <div class="time-slots-container">
+            <h4>時間帯の設定</h4>
+            <div class="time-slots-header">
+              <div class="time-range">
+                <label>
+                  開始時刻:
+                  <select v-model="defaultStartTime">
+                    <option v-for="time in availableStartTimes" :key="time" :value="time">
+                      {{ time }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  終了時刻:
+                  <select v-model="defaultEndTime">
+                    <option v-for="time in availableEndTimes" :key="time" :value="time">
+                      {{ time }}
+                    </option>
+                  </select>
+                </label>
               </div>
-              <div class="time-slots"
-                   @mousedown="e => startDragOnTimeSlots(e, date)"
-                   @mousemove="e => handleDragOnTimeSlots(e, date)"
-                   @mouseup="endDragOnTimeSlots"
-                   @mouseleave="endDragOnTimeSlots">
-                <div v-for="time in timeSlots" :key="time" 
-                     class="time-slot"
-                     :class="{ 
-                       selected: isTimeSelected(date, time), 
-                       'drag-selected': isDragSelected(date, time)
-                     }"
-                     :data-time="time">
-                  <span>{{ time }}</span>
+              <div class="time-controls">
+                <button @click="applyTimeToAllDates" class="apply-time-button">
+                  全ての日に適用
+                </button>
+                <button @click="clearAllTimeSlots" class="clear-button">
+                  全ての時間帯をクリア
+                </button>
+              </div>
+            </div>
+
+            <div class="selected-dates-list">
+              <div v-for="date in selectedDates" :key="date" class="date-item">
+                <div class="date-header">
+                  {{ formatDate(date) }}
+                  <button @click="removeDate(date)" class="remove-date-button">×</button>
+                </div>
+                <div class="time-slots"
+                     @mousedown="e => startDragOnTimeSlots(e, date)"
+                     @mousemove="e => handleDragOnTimeSlots(e, date)"
+                     @mouseup="endDragOnTimeSlots"
+                     @mouseleave="endDragOnTimeSlots">
+                  <div v-for="time in timeSlots" :key="time" 
+                       class="time-slot"
+                       :class="{ 
+                         selected: isTimeSelected(date, time), 
+                         'drag-selected': isDragSelected(date, time)
+                       }"
+                       :data-time="time">
+                    <span>{{ time }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="form-actions">
-        <button
-          @click="createMeeting"
-          :disabled="!isValid"
-          class="create-button"
-        >
-          会議を作成
-        </button>
+        <div class="form-actions">
+          <button
+            @click="createMeeting"
+            :disabled="!isValid"
+            class="create-button"
+          >
+            会議を作成
+          </button>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -118,15 +128,21 @@
 import { ref, computed } from 'vue'
 import { format, addMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import { useRouter } from 'vue-router'
+import { useMeetingStore } from '../stores/meetingStore'
 
+const router = useRouter()
+const meetingStore = useMeetingStore()
 const meetingName = ref('')
 const organizerName = ref('')
 const selectedDates = ref([])
-const selectedTimeSlots = ref({}) // { '2025-02-01': ['09:00', '09:30', ...] }
+const selectedTimeSlots = ref({})
 const defaultStartTime = ref('09:00')
 const defaultEndTime = ref('18:00')
 const startDate = ref('')
 const endDate = ref('')
+const loading = ref(false)
+const errorMessage = ref('')
 
 const maxDate = computed(() => addMonths(new Date(), 2))
 const today = computed(() => format(new Date(), 'yyyy-MM-dd'))
@@ -335,15 +351,28 @@ function onDayClick(day) {
 }
 
 async function createMeeting() {
-  const meetingData = {
-    name: meetingName.value,
-    organizer: organizerName.value,
-    dates: selectedDates.value,
-    timeSlots: selectedTimeSlots.value
-  }
+  if (!isValid.value) return
 
-  console.log('Meeting created:', meetingData)
-  // TODO: API実装後に追加
+  try {
+    loading.value = true
+    errorMessage.value = ''
+
+    const meetingData = {
+      name: meetingName.value,
+      organizer: organizerName.value,
+      dates: selectedDates.value,
+      startTime: defaultStartTime.value,
+      endTime: defaultEndTime.value
+    }
+
+    const result = await meetingStore.createMeeting(meetingData)
+    router.push(`/join/${result.id}`)
+  } catch (error) {
+    console.error('Error creating meeting:', error)
+    errorMessage.value = '会議の作成に失敗しました。もう一度お試しください。'
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -600,6 +629,20 @@ async function createMeeting() {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.error-message {
+  background-color: #fde8e8;
+  color: #c53030;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
 }
 
 @media (max-width: 768px) {

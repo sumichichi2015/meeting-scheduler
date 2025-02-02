@@ -1,0 +1,65 @@
+scenarios:
+  meeting_creation:
+    description: "会議作成機能のテスト"
+    steps:
+      - name: "フォーム入力"
+        validation:
+          - "会議名が必須"
+          - "主催者名が必須"
+          - "日時が1つ以上選択されている"
+      - name: "会議作成"
+        validation:
+          - "APIリクエストが正しい形式"
+          - "レスポンスに会議IDが含まれる"
+      - name: "エラーハンドリング"
+        validation:
+          - "バリデーションエラーの表示"
+          - "API エラーの表示"
+          - "ネットワークエラーの処理"
+
+  participant_input:
+    description: "参加者入力機能のテスト"
+    steps:
+      - name: "画面表示"
+        validation:
+          - "会議情報の表示"
+          - "日時選択UIの表示"
+          - "名前入力フォームの表示"
+      - name: "予定入力"
+        validation:
+          - "ドラッグ操作による選択"
+          - "選択状態の視覚的フィードバック"
+          - "時間枠の制約チェック"
+      - name: "送信処理"
+        validation:
+          - "入力データの形式検証"
+          - "API通信の成功確認"
+          - "完了画面への遷移"
+
+error_scenarios:
+  network:
+    - description: "ネットワーク切断時の動作"
+      expected: "エラーメッセージ表示とリトライオプション"
+    - description: "タイムアウト時の動作"
+      expected: "適切なタイムアウトメッセージと再試行機能"
+
+  validation:
+    - description: "不正な会議ID"
+      expected: "404ページ表示"
+    - description: "不正な入力値"
+      expected: "フォームエラーの表示と修正ガイド"
+
+  state:
+    - description: "ページリロード時のデータ保持"
+      expected: "入力データの復元"
+    - description: "バックボタン操作"
+      expected: "状態の適切な復元"
+
+performance:
+  metrics:
+    - name: "初期ロード時間"
+      threshold: "2秒以内"
+    - name: "操作レスポンス"
+      threshold: "200ms以内"
+    - name: "API レスポンス"
+      threshold: "500ms以内"

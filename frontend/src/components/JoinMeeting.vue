@@ -1,158 +1,140 @@
 <template>
   <div class="join-meeting">
-    <div class="meeting-header">
-      <h2>{{ meeting.name }}</h2>
-      <p class="organizer">主催者: {{ meeting.organizer }}</p>
+    <div v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
     </div>
 
-    <div class="participant-form" v-if="!hasSubmitted">
-      <div class="form-group">
-        <label for="participantName">お名前 (10文字以内)</label>
-        <input
-          id="participantName"
-          v-model="participantName"
-          type="text"
-          maxlength="10"
-          required
-          placeholder="例：山田太郎"
-        >
-      </div>
-      <div class="form-group">
-        <label for="comment">コメント (30文字以内)</label>
-        <input
-          id="comment"
-          v-model="comment"
-          type="text"
-          maxlength="30"
-          placeholder="例：遅れて参加する可能性あり"
-        >
-      </div>
+    <div v-if="meetingStore.loading" class="loading">
+      読み込み中...
     </div>
 
-    <div class="schedule-section">
-      <div class="schedule-table"
-           @mousedown="startDrag"
-           @mousemove="handleDrag"
-           @mouseup="endDrag"
-           @mouseleave="endDrag">
-        <table>
-          <thead>
-            <tr>
-              <th class="time-header">日時</th>
-              <th v-for="participant in participants" :key="participant.name">
-                {{ participant.name }}
-              </th>
-              <th v-if="!hasSubmitted">あなたの予定</th>
-            </tr>
-            <tr class="comment-row">
-              <th class="time-header">コメント</th>
-              <td v-for="participant in participants" :key="participant.name" class="comment-cell">
-                {{ participant.comment }}
-              </td>
-              <td v-if="!hasSubmitted" class="comment-cell">
-                {{ comment }}
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="datetime in datetimeSlots" :key="datetime.key">
-              <td class="time-cell">{{ formatDateTime(datetime) }}</td>
-              <td v-for="participant in participants" :key="participant.name"
-                  class="schedule-cell">
-                {{ getParticipantAvailability(datetime.date, datetime.time, participant) }}
-              </td>
-              <td v-if="!hasSubmitted"
-                  class="schedule-cell editable"
-                  :class="[
-                    getAvailabilityClass(datetime.date, datetime.time),
-                    { 'cell-selected': isSelected(datetime.date, datetime.time) }
-                  ]"
-                  :data-date="datetime.date"
-                  :data-time="datetime.time">
-                {{ getAvailabilitySymbol(datetime.date, datetime.time) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <template v-else>
+      <div class="meeting-header">
+        <h2>{{ meetingStore.currentMeeting?.name }}</h2>
+        <p class="organizer">主催者: {{ meetingStore.currentMeeting?.organizer }}</p>
       </div>
 
-      <div class="controls" v-if="!hasSubmitted">
-        <div class="availability-controls">
-          <button @click="setSelectedAvailability('○')" class="control-button available">○</button>
-          <button @click="setSelectedAvailability('△')" class="control-button maybe">△</button>
-          <button @click="setSelectedAvailability('×')" class="control-button unavailable">×</button>
+      <div class="participant-form" v-if="!hasSubmitted">
+        <div class="form-group">
+          <label for="participantName">お名前 (10文字以内)</label>
+          <input
+            id="participantName"
+            v-model="participantName"
+            type="text"
+            maxlength="10"
+            required
+            placeholder="例：山田太郎"
+          >
         </div>
-        <button @click="submitSchedule" :disabled="!isValid" class="submit-button">
-          予定を送信
-        </button>
+        <div class="form-group">
+          <label for="comment">コメント (30文字以内)</label>
+          <input
+            id="comment"
+            v-model="comment"
+            type="text"
+            maxlength="30"
+            placeholder="例：遅れて参加する可能性あり"
+          >
+        </div>
       </div>
-    </div>
 
-    <div class="participants-list" v-if="participants.length > 0">
-      <h3>参加者コメント</h3>
-      <div v-for="participant in participants" :key="participant.name" class="participant">
-        <div class="participant-name">{{ participant.name }}</div>
-        <div class="participant-comment">{{ participant.comment }}</div>
+      <div class="schedule-section">
+        <div class="schedule-table"
+             @mousedown="startDrag"
+             @mousemove="handleDrag"
+             @mouseup="endDrag"
+             @mouseleave="endDrag">
+          <table>
+            <thead>
+              <tr>
+                <th class="time-header">日時</th>
+                <th v-for="participant in meetingStore.participants" :key="participant.name">
+                  {{ participant.name }}
+                </th>
+                <th v-if="!hasSubmitted">あなたの予定</th>
+              </tr>
+              <tr class="comment-row">
+                <th class="time-header">コメント</th>
+                <td v-for="participant in meetingStore.participants" :key="participant.name" class="comment-cell">
+                  {{ participant.comment }}
+                </td>
+                <td v-if="!hasSubmitted" class="comment-cell">
+                  {{ comment }}
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="datetime in meetingStore.datetimeSlots" :key="datetime.key">
+                <td class="time-cell">{{ formatDateTime(datetime) }}</td>
+                <td v-for="participant in meetingStore.participants" :key="participant.name"
+                    class="schedule-cell">
+                  {{ getParticipantAvailability(datetime.date, datetime.time, participant) }}
+                </td>
+                <td v-if="!hasSubmitted"
+                    class="schedule-cell editable"
+                    :class="[
+                      getAvailabilityClass(datetime.date, datetime.time),
+                      { 'cell-selected': isSelected(datetime.date, datetime.time) }
+                    ]"
+                    :data-date="datetime.date"
+                    :data-time="datetime.time">
+                  {{ getAvailabilitySymbol(datetime.date, datetime.time) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="controls" v-if="!hasSubmitted">
+          <div class="availability-controls">
+            <button @click="setSelectedAvailability('○')" class="control-button available">○</button>
+            <button @click="setSelectedAvailability('△')" class="control-button maybe">△</button>
+            <button @click="setSelectedAvailability('×')" class="control-button unavailable">×</button>
+          </div>
+          <button @click="submitSchedule" :disabled="!isValid" class="submit-button">
+            予定を送信
+          </button>
+        </div>
       </div>
-    </div>
+
+      <div class="participants-list" v-if="meetingStore.participants.length > 0">
+        <h3>参加者コメント</h3>
+        <div v-for="participant in meetingStore.participants" :key="participant.name" class="participant">
+          <div class="participant-name">{{ participant.name }}</div>
+          <div class="participant-comment">{{ participant.comment }}</div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useMeetingStore } from '../stores/meetingStore'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
-// 仮のデータ
-const meeting = ref({
-  name: '週次ミーティング',
-  organizer: '山田太郎',
-  dates: ['2025-02-01', '2025-02-02', '2025-02-03']
-})
-
-const participants = ref([
-  {
-    name: '田中一郎',
-    comment: '午前中であれば参加可能',
-    availability: {
-      '2025-02-01-09:00': '○',
-      '2025-02-01-09:30': '○',
-      '2025-02-01-10:00': '△',
-      '2025-02-01-10:30': '×'
-    }
-  }
-])
+const route = useRoute()
+const meetingStore = useMeetingStore()
+const participantName = ref('')
+const comment = ref('')
+const hasSubmitted = ref(false)
+const availability = ref({})
+const errorMessage = ref('')
 
 // ドラッグ選択関連の状態
 const isDragging = ref(false)
 const dragStart = ref(null)
 const selectedCells = ref(new Set())
 
-// 日時スロットの生成
-const datetimeSlots = computed(() => {
-  const slots = []
-  meeting.value.dates.forEach(date => {
-    for (let hour = 9; hour < 18; hour++) {
-      for (let minute of [0, 30]) {
-        const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
-        slots.push({
-          date,
-          time,
-          key: `${date}-${time}`
-        })
-      }
-    }
-  })
-  return slots
-})
-
-const participantName = ref('')
-const comment = ref('')
-const hasSubmitted = ref(false)
-const availability = ref({})
-
-const isValid = computed(() => {
-  return participantName.value.length > 0
+onMounted(async () => {
+  try {
+    await meetingStore.getMeeting(route.params.id)
+  } catch (error) {
+    errorMessage.value = '会議情報の取得に失敗しました'
+    console.error('Error fetching meeting:', error)
+  }
 })
 
 function formatDateTime(datetime) {
@@ -180,7 +162,6 @@ function getAvailabilityClass(date, time) {
   }
 }
 
-// ドラッグ選択関連の関数
 function startDrag(event) {
   if (!event.target.classList.contains('editable')) return
   isDragging.value = true
@@ -189,7 +170,6 @@ function startDrag(event) {
     time: event.target.dataset.time
   }
   
-  // ドラッグ開始点の状態を変更
   const key = `${dragStart.value.date}-${dragStart.value.time}`
   const currentValue = availability.value[key] || '○'
   availability.value[key] = getNextAvailability(currentValue)
@@ -201,22 +181,23 @@ function handleDrag(event) {
   const cell = event.target
   if (!cell.classList.contains('editable')) return
 
-  const currentDate = cell.dataset.date
-  const currentTime = cell.dataset.time
-  if (!currentDate || !currentTime) return
+  const date = cell.dataset.date
+  const time = cell.dataset.time
+  if (!date || !time) return
 
-  const key = `${currentDate}-${currentTime}`
+  const key = `${date}-${time}`
   if (selectedCells.value.has(key)) return
 
-  // 新しいセルの状態を、ドラッグ開始点と同じ状態に変更
+  const startKey = Array.from(selectedCells.value)[0]
+  const [startDate, startTime] = startKey.split('-')
+  const targetValue = availability.value[`${startDate}-${startTime}`]
+  availability.value[key] = targetValue
   selectedCells.value.add(key)
-  const startKey = `${dragStart.value.date}-${dragStart.value.time}`
-  const targetValue = availability.value[startKey]
-  availability.value[key] = getNextAvailability(targetValue)
 }
 
 function endDrag() {
   isDragging.value = false
+  selectedCells.value.clear()
 }
 
 function isSelected(date, time) {
@@ -225,7 +206,11 @@ function isSelected(date, time) {
 
 function setSelectedAvailability(value) {
   selectedCells.value.forEach(key => {
-    availability.value[key] = value
+    const [date, time] = key.split('-')
+    if (!availability.value[date]) {
+      availability.value[date] = {}
+    }
+    availability.value[date][time] = value
   })
   selectedCells.value.clear()
 }
@@ -236,16 +221,22 @@ function getNextAvailability(current) {
   return order[(currentIndex + 1) % order.length]
 }
 
+const isValid = computed(() => participantName.value.trim().length > 0)
+
 async function submitSchedule() {
-  participants.value.push({
-    name: participantName.value,
-    comment: comment.value,
-    availability: { ...availability.value }
-  })
-  
-  hasSubmitted.value = true
-  participantName.value = ''
-  comment.value = ''
+  if (!isValid.value) return
+
+  try {
+    await meetingStore.addParticipant({
+      name: participantName.value,
+      comment: comment.value,
+      availability: availability.value
+    })
+    hasSubmitted.value = true
+  } catch (error) {
+    errorMessage.value = '参加登録に失敗しました'
+    console.error('Error submitting schedule:', error)
+  }
 }
 </script>
 
@@ -256,24 +247,66 @@ async function submitSchedule() {
   padding: 20px;
 }
 
-.meeting-header {
+.error-message {
+  background-color: #fde8e8;
+  color: #c53030;
+  padding: 12px;
+  border-radius: 4px;
   margin-bottom: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.meeting-header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.meeting-header h2 {
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.organizer {
+  color: #666;
 }
 
 .participant-form {
-  margin-bottom: 20px;
+  background-color: #fff;
   padding: 20px;
-  background: #f5f5f5;
   border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #4a5568;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 16px;
 }
 
 .schedule-section {
-  margin-bottom: 30px;
+  margin: 20px 0;
 }
 
 .schedule-table {
   overflow-x: auto;
-  margin-bottom: 20px;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -285,21 +318,21 @@ table {
 }
 
 th, td {
-  padding: 10px;
-  border: 1px solid #ddd;
+  padding: 12px;
   text-align: center;
-  min-width: 100px;
+  border: 1px solid #e2e8f0;
 }
 
 .time-header {
-  background: #f5f5f5;
+  background-color: #f7fafc;
+  font-weight: bold;
   position: sticky;
   left: 0;
   z-index: 2;
 }
 
 .time-cell {
-  background: #f5f5f5;
+  background-color: #f7fafc;
   position: sticky;
   left: 0;
   z-index: 1;
@@ -307,28 +340,37 @@ th, td {
 }
 
 .schedule-cell {
-  position: relative;
-  cursor: default;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .schedule-cell.editable {
   cursor: pointer;
-  user-select: none;
 }
 
-.cell-selected {
-  position: relative;
+.schedule-cell.available {
+  background-color: #c6f6d5;
 }
 
-.cell-selected::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.1);
-  pointer-events: none;
+.schedule-cell.maybe {
+  background-color: #fefcbf;
+}
+
+.schedule-cell.unavailable {
+  background-color: #fed7d7;
+}
+
+.comment-row {
+  background-color: #f7fafc;
+}
+
+.comment-cell {
+  font-size: 14px;
+  color: #666;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .controls {
@@ -337,6 +379,7 @@ th, td {
   align-items: center;
   justify-content: flex-end;
   margin-top: 20px;
+  padding: 0 20px;
 }
 
 .availability-controls {
@@ -353,31 +396,33 @@ th, td {
 }
 
 .control-button.available {
-  background-color: rgba(76, 175, 80, 0.1);
-  color: #4CAF50;
+  background-color: #c6f6d5;
 }
 
 .control-button.maybe {
-  background-color: rgba(255, 193, 7, 0.1);
-  color: #FFC107;
+  background-color: #fefcbf;
 }
 
 .control-button.unavailable {
-  background-color: rgba(244, 67, 54, 0.1);
-  color: #f44336;
+  background-color: #fed7d7;
 }
 
 .submit-button {
   padding: 8px 20px;
-  background-color: #4CAF50;
+  background-color: #4299e1;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submit-button:hover {
+  background-color: #3182ce;
 }
 
 .submit-button:disabled {
-  background-color: #ccc;
+  background-color: #a0aec0;
   cursor: not-allowed;
 }
 
@@ -387,7 +432,10 @@ th, td {
 
 .participant {
   padding: 15px;
-  border-bottom: 1px solid #ddd;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
 }
 
 .participant-name {
@@ -397,51 +445,22 @@ th, td {
 
 .participant-comment {
   color: #666;
-}
-
-.comment-row {
-  font-size: 0.85rem;
-  color: #666;
-  background-color: #f9f9f9;
-}
-
-.comment-cell {
-  padding: 4px 8px;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.comment-cell:hover {
-  white-space: normal;
-  word-wrap: break-word;
-  position: relative;
-}
-
-.comment-cell:hover::after {
-  content: attr(title);
-  position: absolute;
-  left: 0;
-  top: 100%;
-  background: white;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 10;
-  max-width: 200px;
-  white-space: normal;
+  font-size: 14px;
 }
 
 @media (max-width: 768px) {
-  .schedule-table {
-    font-size: 0.9rem;
+  .join-meeting {
+    padding: 10px;
   }
 
-  th, td {
+  .schedule-table {
+    margin: 20px -10px;
+  }
+
+  th,
+  td {
     padding: 8px;
-    min-width: 80px;
+    font-size: 14px;
   }
 
   .controls {

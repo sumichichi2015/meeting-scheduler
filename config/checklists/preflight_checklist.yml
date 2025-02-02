@@ -1,0 +1,80 @@
+frontend:
+  routing:
+    path: src/router.js
+    checks:
+      - name: route_definition
+        description: "全てのルートが定義されているか確認"
+        required: true
+      - name: navigation_guards
+        description: "認証・認可の確認"
+        required: true
+      - name: error_routes
+        description: "エラーページの設定"
+        required: true
+
+  state_management:
+    path: src/stores/*.js
+    checks:
+      - name: loading_states
+        description: "ローディング状態の管理"
+        required: true
+      - name: error_handling
+        description: "エラー状態の管理"
+        required: true
+      - name: data_persistence
+        description: "データの永続化"
+        required: false
+
+  components:
+    path: src/components/*.vue
+    checks:
+      - name: props_validation
+        description: "プロパティのバリデーション"
+        required: true
+      - name: error_boundaries
+        description: "エラーバウンダリの実装"
+        required: true
+      - name: loading_states
+        description: "ローディング表示"
+        required: true
+
+backend:
+  api:
+    path: main.py
+    checks:
+      - name: input_validation
+        description: "入力値のバリデーション"
+        required: true
+      - name: error_responses
+        description: "エラーレスポンスの定義"
+        required: true
+      - name: authentication
+        description: "認証の実装"
+        required: false
+
+  database:
+    path: models/*.py
+    checks:
+      - name: schema_validation
+        description: "スキーマの検証"
+        required: true
+      - name: migrations
+        description: "マイグレーションの準備"
+        required: true
+
+testing:
+  frontend:
+    - name: component_tests
+      description: "コンポーネントテストの実装"
+      coverage: 80
+    - name: e2e_tests
+      description: "E2Eテストの実装"
+      required: true
+
+  backend:
+    - name: unit_tests
+      description: "ユニットテストの実装"
+      coverage: 80
+    - name: integration_tests
+      description: "統合テストの実装"
+      required: true
