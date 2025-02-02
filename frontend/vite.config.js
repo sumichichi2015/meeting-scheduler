@@ -1,10 +1,11 @@
-import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url'
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  base: '/meeting-scheduler/',
   plugins: [vue()],
+  base: '/meeting-scheduler/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -15,4 +16,4 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./tests/setup.js']
   }
-});
+})
