@@ -5,7 +5,11 @@ from typing import Dict, List, Optional
 from database import db
 import uuid
 
-app = FastAPI()
+app = FastAPI(
+    title="Meeting Scheduler API",
+    description="会議日程調整アプリケーションのAPI",
+    version="1.0.0"
+)
 
 origins = [
     "https://sumichichi2015.github.io",  # GitHub Pages
@@ -19,6 +23,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    return {
+        "name": "Meeting Scheduler API",
+        "version": "1.0.0",
+        "endpoints": {
+            "GET /meetings/{meeting_id}": "会議の詳細を取得",
+            "POST /meetings": "新しい会議を作成",
+            "POST /meetings/{meeting_id}/participants": "参加者を追加"
+        },
+        "documentation": "/docs",  # Swagger UI
+        "redoc": "/redoc"         # ReDoc
+    }
 
 class Meeting(BaseModel):
     name: str
