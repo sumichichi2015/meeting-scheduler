@@ -1,13 +1,25 @@
 <template>
-  <div class="app">
-    <header>
-      <h1>会議調整アプリ</h1>
-    </header>
-    <main>
-      <router-view></router-view>
-    </main>
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-center mb-8">会議調整アプリ</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-xl font-semibold mb-4">新しい会議を作成</h2>
+        <CreateMeeting />
+      </div>
+      
+      <div class="bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-xl font-semibold mb-4">会議に参加</h2>
+        <JoinMeeting />
+      </div>
+    </div>
   </div>
 </template>
+
+<script setup>
+import CreateMeeting from './components/CreateMeeting.vue'
+import JoinMeeting from './components/JoinMeeting.vue'
+</script>
 
 <style>
 :root {
@@ -27,7 +39,7 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text-color);
-  background-color: var(--background-color);
+  background-color: #f3f4f6;
   line-height: 1.6;
 }
 
