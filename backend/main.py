@@ -13,7 +13,8 @@ app = FastAPI(
 
 origins = [
     "https://sumichichi2015.github.io",  # GitHub Pages
-    "http://localhost:5173",  # 開発環境
+    "http://localhost:5173",             # 開発環境
+    "http://localhost:3000"              # 代替開発ポート
 ]
 
 app.add_middleware(

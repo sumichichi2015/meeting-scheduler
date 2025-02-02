@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
+import axios from 'axios'
 import { ref, computed } from 'vue'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://meeting-scheduler-backend.fly.dev'
 
 export const useMeetingStore = defineStore('meeting', () => {
   const currentMeeting = ref(null)
@@ -34,18 +37,13 @@ export const useMeetingStore = defineStore('meeting', () => {
   async function createMeeting(meetingData) {
     try {
       loading.value = true
-      const response = await fetch('http://localhost:3002/meetings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: meetingData.name,
-          organizer: meetingData.organizer,
-          dates: meetingData.dates,
-          start_time: meetingData.startTime,
-          end_time: meetingData.endTime
-        })
+      error.value = null
+      const response = await axios.post(`${API_BASE_URL}/meetings`, {
+        name: meetingData.name,
+        organizer: meetingData.organizer,
+        dates: meetingData.dates,
+        start_time: meetingData.startTime,
+        end_time: meetingData.endTime
       })
 
       if (!response.ok) {
@@ -64,9 +62,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       }
 
       return currentMeeting.value
-    } catch (e) {
-      error.value = e.message
-      throw e
+    } catch (error) {
+      error.value = error.response?.data?.detail || 'エラーが発生しました'
+      throw error
     } finally {
       loading.value = false
     }
@@ -75,7 +73,8 @@ export const useMeetingStore = defineStore('meeting', () => {
   async function getMeeting(id) {
     try {
       loading.value = true
-      const response = await fetch(`http://localhost:3002/meetings/${id}`)
+      error.value = null
+      const response = await axios.get(`${API_BASE_URL}/meetings/${id}`)
       if (!response.ok) {
         throw new Error('会議が見つかりません')
       }
@@ -93,9 +92,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       participants.value = data.participants || []
 
       return currentMeeting.value
-    } catch (e) {
-      error.value = e.message
-      throw e
+    } catch (error) {
+      error.value = error.response?.data?.detail || '会議情報の取得に失敗しました'
+      throw error
     } finally {
       loading.value = false
     }
@@ -104,16 +103,11 @@ export const useMeetingStore = defineStore('meeting', () => {
   async function addParticipant(participantData) {
     try {
       loading.value = true
-      const response = await fetch(`http://localhost:3002/meetings/${currentMeeting.value.id}/participants`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: participantData.name,
-          comment: participantData.comment,
-          availability: participantData.availability
-        })
+      error.value = null
+      const response = await axios.post(`http://localhost:3002/meetings/${currentMeeting.value.id}/participants`, {
+        name: participantData.name,
+        comment: participantData.comment,
+        availability: participantData.availability
       })
 
       if (!response.ok) {
@@ -128,9 +122,9 @@ export const useMeetingStore = defineStore('meeting', () => {
       })
 
       return data
-    } catch (e) {
-      error.value = e.message
-      throw e
+    } catch (error) {
+      error.value = error.response?.data?.detail || '参加登録に失敗しました'
+      throw error
     } finally {
       loading.value = false
     }
