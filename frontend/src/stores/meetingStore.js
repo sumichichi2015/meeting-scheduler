@@ -44,7 +44,7 @@ export const useMeetingStore = defineStore('meeting', () => {
     error.value = null;
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/meetings/${id});
+      const response = await axios.get(`${API_BASE_URL}/meetings/${id}`);
       
       if (!response.data) {
         throw new Error('会議データが見つかりません');
